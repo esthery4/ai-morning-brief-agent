@@ -1,3 +1,15 @@
-yfinance>=0.2,<2
-pandas>=2.2,<3
-lxml>=5,<7
+# Financial market data
+yfinance>=0.2,<2       # Retrieve stock prices and trading volume
+
+# Data analysis
+pandas>=2.2,<3         # Analyze stock data and calculate anomalies
+lxml>=5,<7             # Read Nasdaq-100 company tables
+
+# AI agent framework
+langgraph>=1,<2        # Build and manage AI agent workflows
+
+# Google Gemini integration
+langchain-google-genai>=3,<5  # Connect Gemini to LangGraph
+
+# Financial news retrieval
+feedparser>=6,<7       # Retrieve and parse news RSS feeds
