@@ -35,7 +35,9 @@ jobs:
           # Securely access our Gemini API key
           GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
-          # Select the Gemini model
-          GEMINI_MODEL: gemini-2.5-flash
+          
+          # Select the updated Gemini model
+          GEMINI_MODEL: gemini-3.8-flash
+
 
         run: python src/test_ai.py
