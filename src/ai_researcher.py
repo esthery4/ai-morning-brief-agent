@@ -90,7 +90,8 @@ def analyze_news(state: ResearchState):
     # Generate the AI analysis
     response = model.invoke(prompt)
 
-    return {"analysis": response.content}
+    # Extract readable text without Gemini metadata
+    return {"analysis": response.text}
 
 
 # Step 3: Build the LangGraph workflow
