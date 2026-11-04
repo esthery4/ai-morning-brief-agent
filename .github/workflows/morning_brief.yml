@@ -1,16 +1,24 @@
-# Name of the GitHub Actions workflow
+# Automated AI Morning Brief
 name: AI Morning Brief Agent
 
-# Allow manual workflow execution
 on:
+  # Run manually whenever needed
   workflow_dispatch:
+
+  # Run every morning automatically
+  schedule:
+    # 12:00 UTC = 7 AM EST / 8 AM EDT
+    - cron: "0 12 * * *"
 
 jobs:
   morning-brief:
     runs-on: ubuntu-latest
 
+    # Prevent the workflow from running indefinitely
+    timeout-minutes: 40
+
     steps:
-      # Step 1: Download the repository
+      # Step 1: Download repository code
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -24,20 +32,18 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Step 4: Run weather and market analysis
-      - name: Run Morning Brief
-        run: python src/main.py
-
-      # Step 5: Investigate unusual stocks using Gemini
-      - name: Run AI Stock Investigation
+      # Step 4: Generate and email the morning brief
+      - name: Generate and Send Morning Brief
         env:
+          # Gemini AI credentials
           GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: gemini-3.8-flash
-        run: python src/run_ai_brief.py
 
-      # Step 6: Generate personalized news briefing
-      - name: Run Personalized News Briefing
-        env:
-          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-3.8-flash
-        run: python src/news_brief.py
+          # Gmail credentials
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+
+          # Display Python output immediately
+          PYTHONUNBUFFERED: "1"
+
+        run: python src/send_email.py
