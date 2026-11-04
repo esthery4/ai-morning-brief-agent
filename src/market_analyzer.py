@@ -1,3 +1,7 @@
+# Tools for requesting and reading website data
+from io import StringIO
+from urllib.request import Request, urlopen
+
 # Tools for downloading and analyzing stock data
 import pandas as pd
 import yfinance as yf
@@ -9,21 +13,52 @@ NASDAQ_URL = (
 )
 
 
+
+# Backup stock list if Wikipedia blocks the request
+FALLBACK_TICKERS = [
+    "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL",
+    "GOOG", "META", "TSLA", "AVGO", "AMD",
+    "NFLX", "COST", "ADBE", "INTC", "AMAT",
+    "MU", "CSCO", "QCOM", "INTU", "PEP"
+]
+
+
 def get_nasdaq100_tickers():
-    # Read the Nasdaq-100 company table
-    tables = pd.read_html(NASDAQ_URL)
+    try:
+        # Request the webpage with a browser-like header
+        request = Request(
+            NASDAQ_URL,
+            headers={
+                "User-Agent": "Mozilla/5.0"
+            }
+        )
 
-    for table in tables:
-        if "Ticker" in table.columns:
-            tickers = table["Ticker"].dropna().astype(str)
+        # Download the HTML content
+        with urlopen(request, timeout=20) as response:
+            html = response.read().decode("utf-8")
 
-            # Convert symbols into Yahoo Finance format
-            return [
-                ticker.strip().replace(".", "-")
-                for ticker in tickers
-            ]
+        # Extract the Nasdaq-100 constituent table
+        tables = pd.read_html(StringIO(html))
 
-    raise ValueError("Nasdaq-100 ticker list not found")
+        for table in tables:
+            if "Ticker" in table.columns:
+                tickers = table["Ticker"].dropna()
+
+                return [
+                    str(ticker).strip().replace(".", "-")
+                    for ticker in tickers
+                ]
+
+        raise ValueError("Ticker column not found")
+
+    except Exception as error:
+        # Continue with a smaller test list
+        print(f"Nasdaq-100 list error: {error}")
+        print("Using backup list of 20 stock symbols.")
+        print("WARNING: This is a partial market scan.")
+
+        return FALLBACK_TICKERS
+
 
 
 def analyze_stock(ticker):
