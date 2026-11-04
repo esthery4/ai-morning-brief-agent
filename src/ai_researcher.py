@@ -1,0 +1,124 @@
+# Import tools for news retrieval and AI analysis
+import os
+from urllib.parse import quote
+
+import feedparser
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.graph import StateGraph, START, END
+from typing_extensions import TypedDict
+
+
+# Define the information shared between agent steps
+class ResearchState(TypedDict):
+    ticker: str
+    headlines: list
+    analysis: str
+
+
+# Step 1: Retrieve recent financial news
+def fetch_news(state: ResearchState):
+    ticker = state["ticker"]
+
+    # Search Google News for company-related headlines
+    query = quote(f"{ticker} stock earnings company")
+    url = (
+        "https://news.google.com/rss/search"
+        f"?q={query}&hl=en-US&gl=US&ceid=US:en"
+    )
+
+    feed = feedparser.parse(url)
+
+    # Keep up to five headlines and their links
+    headlines = [
+        {
+            "title": entry.title,
+            "link": entry.link
+        }
+        for entry in feed.entries[:5]
+    ]
+
+    return {"headlines": headlines}
+
+
+# Step 2: Ask Gemini to analyze the news
+def analyze_news(state: ResearchState):
+
+    # Connect to Gemini using GitHub Secrets
+    model = ChatGoogleGenerativeAI(
+        model=os.environ["GEMINI_MODEL"],
+        temperature=0
+    )
+
+    # Check whether news was retrieved
+    if not state["headlines"]:
+        return {
+            "analysis": "No recent financial news found."
+        }
+
+    # Format headlines for Gemini
+    news_text = "\n".join(
+        f"- {item['title']}\n  {item['link']}"
+        for item in state["headlines"]
+    )
+
+    # Instructions for the AI research assistant
+    prompt = f"""
+    You are a financial news research assistant.
+
+    Stock ticker: {state['ticker']}
+
+    Recent headlines:
+    {news_text}
+
+    Write a short financial briefing covering:
+
+    1. Company name and industry.
+    2. Important recent developments.
+    3. Possible reasons for stock movement.
+    4. Relevant industry trends.
+
+    Requirements:
+    - Use only the provided headlines as evidence.
+    - Do not invent financial events or statistics.
+    - Do not assume news caused a price movement.
+    - Clearly distinguish facts from possible explanations.
+    - If information is insufficient, say so.
+    - Include supporting news links.
+    - Keep the briefing under 180 words.
+    """
+
+    # Generate the AI analysis
+    response = model.invoke(prompt)
+
+    return {"analysis": response.content}
+
+
+# Step 3: Build the LangGraph workflow
+def build_research_agent():
+
+    graph = StateGraph(ResearchState)
+
+    # Register the workflow steps
+    graph.add_node("fetch_news", fetch_news)
+    graph.add_node("analyze_news", analyze_news)
+
+    # Connect the steps in order
+    graph.add_edge(START, "fetch_news")
+    graph.add_edge("fetch_news", "analyze_news")
+    graph.add_edge("analyze_news", END)
+
+    return graph.compile()
+
+
+# Step 4: Run the research workflow for a stock
+def research_stock(ticker):
+
+    agent = build_research_agent()
+
+    result = agent.invoke({
+        "ticker": ticker,
+        "headlines": [],
+        "analysis": ""
+    })
+
+    return result["analysis"]
