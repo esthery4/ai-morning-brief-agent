@@ -1,29 +1,32 @@
-# Tools for handling temporary API failures
-import time
-
-# Import tools for news retrieval and AI analysis
+# Tools for retrieving financial news
 import os
+import time
 from urllib.parse import quote
 
 import feedparser
+
+# Tools for Gemini AI and LangGraph
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, START, END
 from typing_extensions import TypedDict
 
 
-# Define the information shared between agent steps
+# Information shared between agent steps
 class ResearchState(TypedDict):
     ticker: str
     headlines: list
     analysis: str
+    market_data: dict
 
 
-# Step 1: Retrieve recent financial news
 def fetch_news(state: ResearchState):
+    """Retrieve financial news for a stock."""
+
     ticker = state["ticker"]
 
-    # Search Google News for company-related headlines
+    # Search Google News for company developments
     query = quote(f"{ticker} stock earnings company")
+
     url = (
         "https://news.google.com/rss/search"
         f"?q={query}&hl=en-US&gl=US&ceid=US:en"
@@ -31,7 +34,7 @@ def fetch_news(state: ResearchState):
 
     feed = feedparser.parse(url)
 
-    # Keep up to five headlines and their links
+    # Keep up to five headlines
     headlines = [
         {
             "title": entry.title,
@@ -43,32 +46,46 @@ def fetch_news(state: ResearchState):
     return {"headlines": headlines}
 
 
-# Step 2: Ask Gemini to analyze the news
 def analyze_news(state: ResearchState):
+    """Use Gemini to investigate unusual stock activity."""
 
-    # Connect to Gemini using GitHub Secrets
+    # Connect to Gemini
     model = ChatGoogleGenerativeAI(
         model=os.environ["GEMINI_MODEL"],
         temperature=0
     )
 
-    # Check whether news was retrieved
     if not state["headlines"]:
         return {
             "analysis": "No recent financial news found."
         }
 
-    # Format headlines for Gemini
+    # Format news headlines
     news_text = "\n".join(
         f"- {item['title']}\n  {item['link']}"
         for item in state["headlines"]
     )
 
-    # Instructions for the AI research assistant
+    # Get stock statistics from the anomaly detector
+    market_data = state.get("market_data") or {}
+
+    statistics = (
+        f"Data date: {market_data.get('date', 'N/A')}\n"
+        f"Daily change: {market_data.get('daily_change', 'N/A')}%\n"
+        f"Weekly change: {market_data.get('weekly_change', 'N/A')}%\n"
+        f"Monthly change: {market_data.get('monthly_change', 'N/A')}%\n"
+        f"Z-score: {market_data.get('z_score', 'N/A')}\n"
+        f"Volume ratio: {market_data.get('volume_ratio', 'N/A')}x"
+    )
+
+    # Instructions for Gemini
     prompt = f"""
     You are a financial news research assistant.
 
     Stock ticker: {state['ticker']}
+
+    Market statistics:
+    {statistics}
 
     Recent headlines:
     {news_text}
@@ -77,11 +94,11 @@ def analyze_news(state: ResearchState):
 
     1. Company name and industry.
     2. Important recent developments.
-    3. Possible reasons for stock movement.
+    3. Possible reasons for unusual stock activity.
     4. Relevant industry trends.
 
     Requirements:
-    - Use only the provided headlines as evidence.
+    - Use only the supplied statistics and headlines.
     - Do not invent financial events or statistics.
     - Do not assume news caused a price movement.
     - Clearly distinguish facts from possible explanations.
@@ -90,42 +107,48 @@ def analyze_news(state: ResearchState):
     - Keep the briefing under 180 words.
     """
 
-    
-    # Retry when Gemini is temporarily unavailable
+    # Retry if Gemini is temporarily unavailable
     for attempt in range(3):
         try:
             response = model.invoke(prompt)
-            break
-    
+
+            # Return readable AI-generated text
+            return {"analysis": response.text}
+
         except Exception as error:
-            # Only retry temporary server errors
             message = str(error)
-    
+
+            # Retry only temporary server errors
             if "503" not in message and "UNAVAILABLE" not in message:
                 raise
-    
+
+            # Stop after the final attempt
             if attempt == 2:
                 raise
-    
+
             # Wait longer between attempts
             wait_time = 5 * (2 ** attempt)
-            print(f"Gemini unavailable. Retrying in {wait_time}s...")
+
+            print(
+                f"Gemini unavailable. "
+                f"Retrying in {wait_time}s..."
+            )
+
             time.sleep(wait_time)
 
-    # Extract readable text without Gemini metadata
-    return {"analysis": response.text}
 
-
-# Step 3: Build the LangGraph workflow
 def build_research_agent():
+    """Create the LangGraph research workflow."""
 
     graph = StateGraph(ResearchState)
 
-    # Register the workflow steps
+    # Step 1: Retrieve financial headlines
     graph.add_node("fetch_news", fetch_news)
+
+    # Step 2: Analyze headlines using Gemini
     graph.add_node("analyze_news", analyze_news)
 
-    # Connect the steps in order
+    # Connect the agent steps
     graph.add_edge(START, "fetch_news")
     graph.add_edge("fetch_news", "analyze_news")
     graph.add_edge("analyze_news", END)
@@ -133,15 +156,16 @@ def build_research_agent():
     return graph.compile()
 
 
-# Step 4: Run the research workflow for a stock
-def research_stock(ticker):
+def research_stock(ticker, market_data=None):
+    """Run AI research for a selected stock."""
 
     agent = build_research_agent()
 
     result = agent.invoke({
         "ticker": ticker,
         "headlines": [],
-        "analysis": ""
+        "analysis": "",
+        "market_data": market_data or {}
     })
 
     return result["analysis"]
