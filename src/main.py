@@ -1,6 +1,7 @@
-# Import tools for getting the current date and time
+# Import tools for date, time, and weather data
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from weather import get_weather
 
 
 # Main function that starts the Morning Brief Agent
@@ -14,22 +15,33 @@ def main():
     print("AI MORNING BRIEF AGENT")
     print("=" * 40)
 
-    # Display today's date and time
     print(f"Date: {now.strftime('%A, %B %d, %Y')}")
     print(f"Time: {now.strftime('%I:%M %p %Z')}")
 
-    # List the sections of the future morning brief
-    print("\nToday's Morning Brief:")
-    print("1. Weather Forecast")
-    print("2. Financial Markets")
-    print("3. General & Technology News")
-    print("4. K-pop & Entertainment News")
-    print("5. AI-Powered Insights")
+    # Retrieve live weather data
+    print("\n--- WEATHER FORECAST ---")
 
-    # Confirm the program started successfully
-    print("\nStatus: Agent initialized successfully!")
+    try:
+        weather = get_weather()
+
+        print(f"Location: {weather['location']}")
+        print(f"Temperature: {weather['temperature']}°F")
+        print(f"Feels like: {weather['feels_like']}°F")
+        print(f"Precipitation: {weather['precipitation']} mm")
+
+    except Exception as error:
+        # Continue running if the weather API fails
+        print(f"Unable to retrieve weather: {error}")
+
+    # Other sections will be added later
+    print("\n--- COMING SOON ---")
+    print("Financial Markets")
+    print("General & Technology News")
+    print("K-pop & Entertainment News")
+    print("AI-Powered Insights")
+
+    print("\nStatus: Morning Brief completed!")
 
 
-# Run the main function when this file is executed
 if __name__ == "__main__":
     main()
