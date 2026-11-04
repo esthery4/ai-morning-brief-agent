@@ -1,26 +1,29 @@
-# Name of our workflow
+# Name of the workflow
 name: AI Morning Brief Agent
 
-# Allow manual execution from GitHub
+# Allow manual execution
 on:
   workflow_dispatch:
 
-# Define the job
 jobs:
   morning-brief:
     runs-on: ubuntu-latest
 
     steps:
-      # Download our repository code
+      # Download repository files
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Set up Python
+      # Install Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # Run our Morning Brief Agent
+      # Install required Python libraries
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Execute the Morning Brief Agent
       - name: Run Morning Brief
         run: python src/main.py
