@@ -1,3 +1,6 @@
+# Tools for handling temporary API failures
+import time
+
 # Import tools for news retrieval and AI analysis
 import os
 from urllib.parse import quote
@@ -87,8 +90,27 @@ def analyze_news(state: ResearchState):
     - Keep the briefing under 180 words.
     """
 
-    # Generate the AI analysis
-    response = model.invoke(prompt)
+    
+    # Retry when Gemini is temporarily unavailable
+    for attempt in range(3):
+        try:
+            response = model.invoke(prompt)
+            break
+    
+        except Exception as error:
+            # Only retry temporary server errors
+            message = str(error)
+    
+            if "503" not in message and "UNAVAILABLE" not in message:
+                raise
+    
+            if attempt == 2:
+                raise
+    
+            # Wait longer between attempts
+            wait_time = 5 * (2 ** attempt)
+            print(f"Gemini unavailable. Retrying in {wait_time}s...")
+            time.sleep(wait_time)
 
     # Extract readable text without Gemini metadata
     return {"analysis": response.text}
