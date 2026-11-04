@@ -73,7 +73,7 @@ def analyze_stock(ticker):
     volume = data["Volume"]
 
     # Calculate daily percentage returns
-    returns = close.pct_change().dropna()
+    returns = close.pct_change(fill_method=None).dropna()
 
     # Latest daily return
     daily_change = returns.iloc[-1] * 100
