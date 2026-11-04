@@ -1,29 +1,41 @@
-# Name of the workflow
+# Name of our GitHub Actions workflow
 name: AI Morning Brief Agent
 
-# Allow manual execution
+# Allow us to manually run the workflow from GitHub
 on:
   workflow_dispatch:
 
+# Define the job that GitHub will execute
 jobs:
   morning-brief:
     runs-on: ubuntu-latest
 
     steps:
-      # Download repository files
+      # Step 1: Download our GitHub repository code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install Python
+      # Step 2: Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # Install required Python libraries
+      # Step 3: Install libraries from requirements.txt
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Execute the Morning Brief Agent
+      # Step 4: Run weather and financial market analysis
       - name: Run Morning Brief
         run: python src/main.py
+
+      # Step 5: Test Gemini's financial news research
+      - name: Test AI Stock Research
+        env:
+          # Securely access our Gemini API key
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+          # Select the Gemini model
+          GEMINI_MODEL: gemini-2.5-flash
+
+        run: python src/test_ai.py
